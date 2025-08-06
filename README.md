@@ -3,9 +3,9 @@ ansible-role-git_bare
 
 An Ansible role to manage bare Git repositories with support for variant-aware deployment paths, templated post-receive hooks, and custom deploy scripts. Can be made suitable for automated static site publishing and other Git-based deployments.
 
+## This is an Experiment
 
-
-
+Ever find a role that would be perfect if you could change a couple of things to better fit your infra/policy...
 
 ## Features
 
@@ -68,15 +68,15 @@ Given the following repository declaration:
 
 ```yaml
 git_bare_repositories:
-  - git_bare_variant: "dev"
+  - git_bare_variant: "test"
     git_bare_project_name: "example.org"
     git_bare_repo_name: "mkdocs.git"
 ```
 
-The role will create:
+Could create using custom templates
 
 ```
-/home/<user>/deployments/dev/example.org/
+/home/<user>/deployments/test/example.org/
 ├── mkdocs.git/
 ├── releases/
 ├── logs/
@@ -93,13 +93,13 @@ This role uses Jinja2 templates for key scripts and configuration files.
 
 By default, the role uses safe placeholder templates for demonstration and onboarding:
 
-- `example.conf` → Basic project configuration
-- `example-script.sh.j2` → Minimal deploy script
-- `example-post-receive.j2` → Standard post-receive hook
-
+- `example.conf` -> Basic project configuration
+- `example-script.sh.j2` -> Minimal deploy script
+- `example-post-receive.j2` -> Standard post-receive hook
+- Others?
 These are located in:
 
-```
+```bash
 roles/cjsteel.git_bare/templates/
 ```
 
@@ -145,51 +145,8 @@ Ensure these variables are defined or overridden in your playbook or inventory:
 
 ## License
 
-MIT or similar. Customize as needed.
+See included file
 
 ## Author
 
 Christopher Steel
-
-``` 
-
----
-
-Would you like this copied into your actual role folder and auto-populated with `ansible-galaxy` headers or tags?
-
-
-A brief description of the role goes here.
-
-Requirements
-------------
-
-Any pre-requisites that may not be covered by Ansible itself or the role should be mentioned here. For instance, if the role uses the EC2 module, it may be a good idea to mention in this section that the boto package is required.
-
-Role Variables
---------------
-
-A description of the settable variables for this role should go here, including any variables that are in defaults/main.yml, vars/main.yml, and any variables that can/should be set via parameters to the role. Any variables that are read from other roles and/or the global scope (ie. hostvars, group vars, etc.) should be mentioned here as well.
-
-Dependencies
-------------
-
-A list of other roles hosted on Galaxy should go here, plus any details in regards to parameters that may need to be set for other roles, or variables that are used from other roles.
-
-Example Playbook
-----------------
-
-Including an example of how to use your role (for instance, with variables passed in as parameters) is always nice for users too:
-
-    - hosts: servers
-      roles:
-         - { role: username.rolename, x: 42 }
-
-License
--------
-
-BSD
-
-Author Information
-------------------
-
-An optional section for the role authors to include contact information, or a website (HTML is not allowed).
