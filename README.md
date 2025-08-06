@@ -1,5 +1,4 @@
-ansible-role-git_bare
-=========
+# ansible-role-git_bare
 
 An Ansible role to manage bare Git repositories with support for variant-aware deployment paths, templated post-receive hooks, and custom deploy scripts. Can be made suitable for automated static site publishing and other Git-based deployments.
 
@@ -42,8 +41,8 @@ Ever find a role that would be perfect if you could change a couple of things to
   gather_facts: true 
   vars:
     git_bare_user: "{{ ansible_user | default(ansible_env.USER) }}"    
-    git_bare_group: "{{ ansible_user | default(ansible_env.USER) }}"
-    git_bare_variant: "dev"
+    git_bare_group: "{{ ansible_user | default(ansible_env.USE) }}"
+    git_bare_variant: "test"
     git_bare_base_dir: "/tmp/deployments"
     git_bare_script_dir: "/tmp/deployments/dev/scripts"
     git_bare_venv_dir: "/tmp/fakevenv"  # Simulated venv
