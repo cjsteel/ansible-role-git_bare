@@ -1,0 +1,170 @@
+---
+# roles/cjsteel.git_bare/tasks/init_repo.yml
+
+- name: Derive generator name from git repo name
+  set_fact:
+    git_bare_generator: "{{ repo.git_bare_repo_name | regex_replace('\\.git$', '') }}"
+
+- name: Set repo and artifacts root directories for current site + generator
+  set_fact:
+    git_bare_repo_path: "{{ git_bare_base_dir }}{{ git_bare_effective_variant_path }}/{{ repo.git_bare_project_name }}/{{ repo.git_bare_repo_name }}"
+    git_bare_artifacts_root_dir: "{{ git_bare_base_dir }}{{ git_bare_effective_variant_path }}/{{ repo.git_bare_project_name }}/{{ git_bare_generator }}"
+
+
+- name: Set all derived paths for current site + generator
+  set_fact:
+    git_bare_script_dir: "{{ git_bare_artifacts_root_dir }}/scripts"
+    git_bare_log_dir: "{{ git_bare_artifacts_root_dir }}/logs"
+    git_bare_conf_dir: "{{ git_bare_artifacts_root_dir }}/confs"
+    git_bare_releases_dir: "{{ git_bare_artifacts_root_dir }}/releases"
+    git_bare_site_log_dir: "{{ git_bare_base_dir }}{{ git_bare_effective_variant_path }}/{{ repo.git_bare_project_name }}/logs"
+
+- name: Debug project and variant path
+  debug:
+    msg:
+      - "Project: {{ repo.git_bare_project_name }}"
+      - "Variant: {{ git_bare_variant | default('(none)') }}"
+      - "Effective path: {{ git_bare_effective_variant_path }}"
+      - "Artifacts root: {{ git_bare_artifacts_root_dir }}"
+
+- name: Ensure generator artifact directories exist
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ git_bare_user }}"
+    group: "{{ git_bare_group }}"
+    mode: "0755"
+  loop:
+    - "{{ git_bare_script_dir }}"
+    - "{{ git_bare_log_dir }}"
+    - "{{ git_bare_conf_dir }}"
+    - "{{ git_bare_releases_dir }}"
+
+# Optionally create a placeholder release and index.html for static site generators
+
+- name: Ensure placeholder release directory exists for supported generators
+  ansible.builtin.file:
+    path: "{{ git_bare_artifacts_root_dir }}/releases/0000-00-00-000000/site"
+    state: directory
+    mode: "0755"
+    owner: "{{ git_bare_user }}"
+    group: "{{ git_bare_group }}"
+  when:
+    - git_bare_create_placeholder_release
+    - git_bare_generator in ['mkdocs', 'hugo', 'zola']
+
+- name: Check for placeholder index.html before templating
+  ansible.builtin.command: "true"
+  args:
+    creates: "{{ git_bare_artifacts_root_dir }}/releases/0000-00-00-000000/site/index.html"
+  register: git_bare_placeholder_index_created
+  changed_when: false
+  when:
+    - git_bare_create_placeholder_release
+    - git_bare_generator in ['mkdocs', 'hugo', 'zola']
+
+- name: Add minimal generator-specific placeholder index.html to dummy release
+  ansible.builtin.template:
+    src: "{{ git_bare_index_placeholder_template }}"
+    dest: "{{ git_bare_artifacts_root_dir }}/releases/0000-00-00-000000/site/index.html"
+    owner: "{{ git_bare_user }}"
+    group: "{{ git_bare_group }}"
+    mode: "0644"
+  when:
+    - git_bare_create_placeholder_release
+    - git_bare_generator in ['mkdocs', 'hugo', 'zola']
+    - git_bare_placeholder_index_created is not skipped
+
+- name: Ensure 'latest' symlink points to placeholder release (if not already set)
+  ansible.builtin.file:
+    src: "{{ git_bare_artifacts_root_dir }}/releases/0000-00-00-000000"
+    dest: "{{ git_bare_artifacts_root_dir }}/releases/latest"
+    state: link
+    force: false
+    owner: "{{ git_bare_user }}"
+    group: "{{ git_bare_group }}"
+  when:
+    - git_bare_create_placeholder_release | bool
+    - git_bare_generator in ['mkdocs', 'hugo', 'zola']
+
+- name: Ensure shared log directory for the site exists
+  file:
+    path: "{{ git_bare_site_log_dir }}"
+    state: directory
+    owner: "{{ git_bare_user }}"
+    group: "{{ git_bare_group }}"
+    mode: "0755"
+
+# Create internal symlink: project_name/public_html → .../releases/latest/site
+- name: Create internal project-level public_html symlink
+  file:
+    src: "{{ git_bare_releases_dir }}/latest/site"
+    dest: "{{ git_bare_base_dir }}/{{ git_bare_effective_variant_path }}/{{ repo.git_bare_project_name }}/public_html"
+    state: link
+    force: true
+    owner: "{{ git_bare_user }}"
+    group: "{{ git_bare_group }}"
+  when: git_bare_create_public_html_symlink | default(true) | bool
+
+- name: Symlink final site to Apache public_html with correct ownership
+  ansible.builtin.file:
+    src: "{{ git_bare_artifacts_root_dir }}/releases/latest/site"
+    dest: "/var/www/{{ git_bare_effective_variant_path }}/{{ repo.git_bare_project_name }}/public_html"
+    state: link
+    force: true
+    owner: "www-data"
+    group: "www-data"
+  when: git_bare_create_public_html_symlink | default(true) | bool
+
+- name: Ensure parent directory for site Git repo exists
+  file:
+    path: "{{ git_bare_repo_path | dirname }}"
+    state: directory
+    owner: "{{ git_bare_user }}"
+    group: "{{ git_bare_group }}"
+    mode: "0755"
+
+- name: Initialize bare Git repository for generator
+  become: true
+  become_user: "{{ git_bare_user }}"
+  command: git init --bare "{{ git_bare_repo_path }}"
+  args:
+    creates: "{{ git_bare_repo_path }}/HEAD"
+
+# Templates
+
+- name: Install deploy script for site generator
+  template:
+    src: "{{ git_bare_deploy_script_template }}"
+    dest: "{{ git_bare_script_dir }}/deploy-{{ repo.git_bare_project_name }}-{{ git_bare_generator }}.sh"
+    mode: "0700"
+    owner: "{{ git_bare_user }}"
+    group: "{{ git_bare_group }}"
+  when: git_bare_create_post_receive_hook | bool
+
+- name: Install generator tree verification script
+  template:
+    src: "{{ git_bare_project_verify_generator_tree_template }}"
+    dest: "{{ git_bare_script_dir }}/project-verify-generator-tree.sh"
+    mode: "0700"
+    owner: "{{ git_bare_user }}"
+    group: "{{ git_bare_group }}"
+  when: git_bare_create_post_receive_hook | bool
+
+- name: Create per-site generator configuration file
+  template:
+    src: "{{ git_bare_project_conf_template }}"
+    dest: "{{ git_bare_conf_dir }}/{{ repo.git_bare_project_name }}.conf"
+    owner: "{{ git_bare_user }}"
+    group: "{{ git_bare_group }}"
+    mode: "0644"
+  when: git_bare_create_conf_file | bool
+
+- name: Install post-receive hook for generator
+  template:
+    src: "{{ git_bare_post_receive_hook_template }}"
+    dest: "{{ git_bare_repo_path }}/hooks/post-receive"
+    mode: "0755"
+    owner: "{{ git_bare_user }}"
+    group: "{{ git_bare_group }}"
+  when: git_bare_create_post_receive_hook | bool

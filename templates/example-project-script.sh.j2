@@ -1,0 +1,44 @@
+#!/bin/bash
+# Created with template roles/cjsteel.git_bare/templates/example-project-script.sh.j2
+
+set -euo pipefail
+
+# Arguments: <project> <variant> <branch>
+PROJECT="${1:-}"
+VARIANT="${2:-}"
+BRANCH="${3:-main}"
+
+BASE_DIR="{{ git_bare_base_dir }}"
+PROJECT_DIR="${BASE_DIR}/${VARIANT}/${PROJECT}"
+CONF_FILE="${PROJECT_DIR}/confs/${PROJECT}.conf"
+echo "Using config: $CONF_FILE"
+
+# Config must come before anything else that references it
+if [[ ! -f "$CONF_FILE" ]]; then
+  echo "Missing config: $CONF_FILE" >&2
+  exit 1
+fi
+source "$CONF_FILE"
+
+# Now setup logging
+LOG_TYPE="${LOG_TYPE:-mkdocs}"
+LOG_DIR="${PROJECT_DIR}/logs/${LOG_TYPE}"
+mkdir -p "$LOG_DIR"
+echo "Writing logs to: $LOG_FILE"
+LOG_FILE="${LOG_DIR}/$(date -u +'%Y-%m-%d--%H:%M:%S')--${PROJECT}--${LOG_TYPE}.log"
+exec >> "$LOG_FILE" 2>&1
+
+# Update latest log symlink
+ln -sfn "$LOG_FILE" "${LOG_DIR}/latest-${LOG_TYPE}.log"
+
+# Deployment output
+echo "Deploying branch '$BRANCH' of project '$PROJECT'"
+echo "Base directory: $BASE_DIR"
+#echo "Site output will go to: $PUBLIC_HTML"
+
+RELEASE_DIR="${RELEASES_DIR}/sample-release"
+mkdir -p "$RELEASE_DIR"
+echo "Hello from $PROJECT!" > "$RELEASE_DIR/index.html"
+
+#ln -sfn "$RELEASE_DIR" "$PUBLIC_HTML"
+echo "Deployment complete."

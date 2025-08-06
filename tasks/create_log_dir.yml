@@ -1,0 +1,26 @@
+---
+- name: "Ensure per-project log type directory exists"
+  file:
+    path: "{{ repo_log_type_dir }}"
+    state: directory
+    owner: "{{ git_bare_user }}"
+    group: "{{ git_bare_group }}"
+    mode: "0750"
+
+- name: "Create empty log file"
+  copy:
+    dest: "{{ repo_log_file }}"
+    content: ""
+    owner: "{{ git_bare_user }}"
+    group: "{{ git_bare_group }}"
+    mode: "0640"
+  force: no  # prevent overwriting if file is created later in the shell script
+
+- name: "Symlink latest log file for type"
+  file:
+    src: "{{ repo_log_file }}"
+    dest: "{{ repo_log_type_dir }}/latest-{{ git_bare_log_type | default('mkdocs') }}.log"
+    state: link
+    force: yes
+    owner: "{{ git_bare_user }}"
+    group: "{{ git_bare_group }}"

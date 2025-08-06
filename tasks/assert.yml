@@ -1,0 +1,50 @@
+# roles/cjsteel.git_bare/tasks/assert.yml
+---
+- name: Assert required variables for cjsteel.git_bare
+  assert:
+    that:
+      - git_bare_user is defined
+      - git_bare_group is defined
+      - git_bare_base_dir is defined
+      - git_bare_repo_name is defined
+      - git_bare_venv_dir is defined
+      #- git_bare_script_dir is defined
+      - git_bare_repositories | length > 0
+    fail_msg: >
+      Required git_bare_* variables are missing or invalid.
+      Ensure all required variables are set in defaults/main.yml or your playbook.
+
+- name: Conditionally assert git_bare_variant if defined
+  when: git_bare_variant is defined and git_bare_variant | length > 0
+  assert:
+    that:
+      - git_bare_variant is string
+
+- name: Stat deploy script template (controller-side)
+  delegate_to: localhost
+  run_once: true
+  become: false
+  vars:
+    ansible_connection: local
+  stat:
+    path: "{{ git_bare_deploy_script_template }}"
+  register: git_bare_deploy_script_template_stat
+  when: git_bare_create_post_receive_hook | default(true) | bool
+
+- name: Confirm location of stat task
+  debug:
+    msg: "Running on {{ inventory_hostname }} (should be localhost)"
+  delegate_to: localhost
+  run_once: true
+  become: false
+
+- name: Assert deploy script template exists and is a file
+  assert:
+    that:
+      - git_bare_deploy_script_template_stat.stat.exists
+      - git_bare_deploy_script_template_stat.stat.isreg | default(false)
+      #- git_bare_deploy_script_template_stat.stat.isfile | default(false)
+    fail_msg: >
+      The deploy script template '{{ git_bare_deploy_script_template }}' does not exist or is not a file.
+      Ensure the path is correct and relative to the playbook, not the role.
+  when: git_bare_create_post_receive_hook | default(true) | bool

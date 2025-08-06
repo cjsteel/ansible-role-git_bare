@@ -1,0 +1,24 @@
+---
+# roles/cjsteel.git_bare/tasks/main.yml
+#- name: Assert required role variables
+#  import_tasks: assert.yml
+
+- name: Ensure Git is installed
+  package:
+    name: git
+    state: present
+
+- name: Ensure global base directory exists
+  file:
+    path: "{{ git_bare_base_dir }}"
+    state: directory
+    owner: "{{ git_bare_user }}"
+    group: "{{ git_bare_group }}"
+    mode: "0755"
+
+- name: Process each repository
+  include_tasks: init_repo.yml
+  loop: "{{ git_bare_repositories }}"
+  loop_control:
+    label: "{{ repo.git_bare_project_name }}"
+    loop_var: repo

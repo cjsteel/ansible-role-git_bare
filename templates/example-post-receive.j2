@@ -1,0 +1,18 @@
+#!/bin/bash
+# Created with template roles/cjsteel.git_bare/templates/example-post-receive.j2
+# post-receive hook for {{ repo.git_bare_project_name }}
+# GENERATOR: {{ git_bare_generator }}
+# VARIANT: {{ repo.git_bare_variant | default(git_bare_variant | default('', true)) | default('none') }}
+
+echo "Triggering deploy for $PROJECT (branch: $BRANCH, variant: $VARIANT)"
+set -euo pipefail
+
+read oldrev newrev refname
+BRANCH=$(basename "$refname")
+
+PROJECT="{{ repo.git_bare_project_name }}"
+VARIANT="{{ repo.git_bare_variant | default(git_bare_variant | default('', true)) }}"
+SCRIPT="{{ repo_script_dir }}/deploy-{{ repo.git_bare_project_name }}-mkdocs.sh"
+# echo "This is $SCRIPT"
+
+exec "$SCRIPT" "$PROJECT" "$VARIANT" "$BRANCH"

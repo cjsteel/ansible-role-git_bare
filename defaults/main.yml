@@ -1,0 +1,115 @@
+# roles/cjsteel.git_bare/defaults/main.yml
+---
+# Owner and group for all repositories and created files.
+# Defaults to the Ansible connection user.
+#
+# - `ansible_user` is typically the SSH user used to connect
+#   (e.g., deploy, ubuntu, etc.).
+#
+# - `ansible_env.USER` is used as a fallback in edge cases where
+#   `ansible_user` is not defined (rare, but helpful for robustness).
+#
+# This ensures that if you run the playbook with:
+#   ansible-playbook -u otheruser
+# ...the created files are owned by `otheruser`, unless overridden explicitly.
+git_bare_user: "{{ ansible_user | default(ansible_env.USER) }}"
+git_bare_group: "{{ ansible_user | default(ansible_env.USER) }}"
+
+# ------------------------------------------------------------------------------
+# Optional: Variant support for customizing deployment environments and paths
+#
+# This role supports environment "variants" (e.g., dev, stage, test) that allow
+# different builds or domains to be deployed under variant-specific paths.
+#
+# If no variant is set, the role assumes a flat path structure like:
+#   /var/www/<domain>/public_html
+#
+# If a variant is defined (e.g., "test"), the path becomes:
+#   /var/www/test/<domain>/public_html
+#
+# You can override the variant in your inventory or CLI with:
+#   git_bare_variant: "test"
+# ------------------------------------------------------------------------------
+
+# git_bare_variant: "test"  # Uncomment to explicitly set a deployment variant
+
+# Base variant value (can be overridden externally)
+git_bare_variant: "{{ git_bare_variant | default('') }}"
+
+# Normalized path fragment (e.g., "/test" or "")
+git_bare_effective_variant_path: "{{ '/' ~ git_bare_variant if git_bare_variant | length > 0 else '' }}"
+
+
+# Normalized label for display/logging (e.g., "[test]" or "")
+git_bare_effective_variant_label: "{{ '[' ~ git_bare_variant ~ ']' if git_bare_variant | length > 0 else '' }}"
+
+
+
+# Base deployment directory (variant is not appended automatically).
+# Append variant manually in your task or playbook if required.
+git_bare_base_dir: "/home/{{ git_bare_user }}/deployments"
+
+# Default name of the bare repository inside the project directory
+git_bare_repo_name: "mkdocs.git"
+
+git_bare_repo_path: "{{ git_bare_base_dir }}/{{ git_bare_variant }}/{{ git_bare_project_name }}/{{ git_bare_repo_name }}"
+
+# ┌─────────────────────────────────────────────────────────────┐
+# │ Python Virtualenv Configuration                             │
+# └─────────────────────────────────────────────────────────────┘
+
+# Base directory where Python virtualenvs live (typically managed by cjsteel.python_venvs)
+git_bare_venvs_base_dir: "/home/{{ git_bare_user }}/.venvs"
+
+# Subdirectory for environment/variant-specific venvs (e.g., dev, stage)
+git_bare_venvs_subdir: "{{ git_bare_variant | default('default') }}"
+
+# Name and version of the MkDocs venv (used to build full path)
+git_bare_mkdocs_venv_name: "mkdocs-static-i18n"
+git_bare_mkdocs_venv_version: "1.2.3"
+
+# Full virtualenv path used for deploying MkDocs sites (should match cjsteel.python_venvs)
+git_bare_venv_dir: "{{ git_bare_venvs_base_dir }}/{{ git_bare_venvs_subdir }}/{{ git_bare_mkdocs_venv_name }}/{{ git_bare_mkdocs_venv_version }}"
+
+###########################
+# Whether to generate the site-specific hook config file
+git_bare_create_conf_file: true
+
+# Whether to install a default post-receive hook
+git_bare_create_post_receive_hook: true
+
+# git_bare_create_placeholder_release
+git_bare_create_placeholder_release: true
+
+# Default hook, config and deploy script templates
+git_bare_project_conf_template: "example.conf.j2"
+git_bare_deploy_script_template: "example-project-script.sh.j2"
+git_bare_post_receive_hook_template: "example-post-receive.j2"
+git_bare_index_placeholder_template: "example-index-placeholder.html.j2"
+
+
+# List of bare repositories to create.
+# Each item may define:
+#   - git_bare_variant: e.g., "dev"
+#   - git_bare_project_name: e.g., "wokenword.com"
+#   - git_bare_repo_name: e.g., "mkdocs.git"
+#   - git_bare_repo_path (optional): full path to the bare Git repository
+#
+# If `git_bare_repo_path` is omitted, it will be derived as:
+#   {{ git_bare_base_dir }}/{{ git_bare_variant }}/{{ git_bare_project_name }}/{{ git_bare_repo_name }}
+
+git_bare_repositories:
+  - git_bare_variant: "dev"
+    git_bare_project_name: "wokenword.com"
+#    git_bare_script_dir: "/tmp/scripts/dev-wokenword.com"
+    # git_bare_repo_name defaults to "mkdocs.git"
+    # git_bare_repo_path will be derived
+
+  - git_bare_variant: "dev"
+    git_bare_project_name: "example.org"
+    git_bare_repo_name: "assets.git"
+    # git_bare_repo_path will be derived
+
+  - git_bare_repo_path: "/custom/path/to/manual.git"
+    # Bypasses derivation
+
